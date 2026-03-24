@@ -42,8 +42,17 @@ module.exports = class GraphApi {
       console.log('API call successful:', response);
       return response;
     } catch (error) {
-      console.error('Error making API call:', error);
-      throw error;
+      const errCode = error?.response?.code;
+      const errSubcode = error?.response?.error_subcode;
+      const errMessage = error?.response?.message || error?.message || 'Unknown Graph API error';
+
+      // Token expiration is common in development; keep process alive and log clearly.
+      if (errCode === 190 && errSubcode === 463) {
+        console.error('Graph API token expired. Please update ACCESS_TOKEN in .env');
+      }
+
+      console.error('Error making API call:', errMessage);
+      return null;
     }
   }
 

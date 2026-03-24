@@ -94,39 +94,61 @@ module.exports = class Conversation {
   static async handleMessage(senderPhoneNumberId, rawMessage) {
     const message = new Message(rawMessage);
 
-    switch (message.type) {
-      case constants.REPLY_INTERACTIVE_MEDIA_ID:
-        let interactiveMediaResponse = await sendInteractiveMediaMessage(
-          message.id,
-          senderPhoneNumberId,
-          message.senderPhoneNumber
-        );
-        await markMessageForFollowUp(interactiveMediaResponse.messages[0].id);
-        break;
-      case constants.REPLY_MEDIA_CAROUSEL_ID:
-        let mediaCarouselResponse = await sendMediaCarouselMessage(
-          message.id,
-          senderPhoneNumberId,
-          message.senderPhoneNumber
-        );
-        await markMessageForFollowUp(mediaCarouselResponse.messages[0].id);
-        break;
-      case constants.REPLY_OFFER_ID:
-        let ltoResponse = await sendLimitedTimeOfferMessage(
-          message.id,
-          senderPhoneNumberId,
-          message.senderPhoneNumber
-        );
-        await markMessageForFollowUp(ltoResponse.messages[0].id);
-        break;
-      default:
-        sendTryOutDemoMessage(
+    try {
+      switch (message.type) {
+        case constants.REPLY_INTERACTIVE_MEDIA_ID:
+          let interactiveMediaResponse = await sendInteractiveMediaMessage(
+            message.id,
+            senderPhoneNumberId,
+            message.senderPhoneNumber
+          );
+          if (interactiveMediaResponse?.messages?.[0]?.id) {
+            await markMessageForFollowUp(interactiveMediaResponse.messages[0].id);
+          }
+          break;
+        case constants.REPLY_MEDIA_CAROUSEL_ID:
+          let mediaCarouselResponse = await sendMediaCarouselMessage(
+            message.id,
+            senderPhoneNumberId,
+            message.senderPhoneNumber
+          );
+          if (mediaCarouselResponse?.messages?.[0]?.id) {
+            await markMessageForFollowUp(mediaCarouselResponse.messages[0].id);
+          }
+          break;
+        case constants.REPLY_OFFER_ID:
+          let ltoResponse = await sendLimitedTimeOfferMessage(
+            message.id,
+            senderPhoneNumberId,
+            message.senderPhoneNumber
+          );
+          if (ltoResponse?.messages?.[0]?.id) {
+            await markMessageForFollowUp(ltoResponse.messages[0].id);
+          }
+          break;
+        default:
+          await sendTryOutDemoMessage(
+            message.id,
+            senderPhoneNumberId,
+            message.senderPhoneNumber,
+            constants.APP_DEFAULT_MESSAGE
+          );
+          break;
+      }
+    } catch (error) {
+      console.error("Conversation handler error:", error?.message || error);
+
+      // Keep the bot responsive even when template sending fails.
+      try {
+        await sendTryOutDemoMessage(
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber,
           constants.APP_DEFAULT_MESSAGE
         );
-        break;
+      } catch (fallbackError) {
+        console.error("Fallback message failed:", fallbackError?.message || fallbackError);
+      }
     }
   }
 

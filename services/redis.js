@@ -10,21 +10,38 @@
 const redis = require('redis');
 const config = require('./config');
 
+let isRedisAvailable = false;
+
 const client = redis.createClient({
   socket: {
     host: config.redisHost,
-    port: config.redisPort
+    port: config.redisPort,
+    // Disable automatic reconnect loops when Redis isn't running.
+    reconnectStrategy: () => false
   }
 });
 
 client.on('error', (err) => {
-  console.error('Redis Client Error', err);
+  if (!isRedisAvailable) {
+    console.warn('Redis unavailable, running without cache.');
+    console.warn(err.message);
+  }
 });
 
-client.connect();
+client.connect()
+  .then(() => {
+    isRedisAvailable = true;
+  })
+  .catch(() => {
+    isRedisAvailable = false;
+  });
 
 module.exports = class Cache {
     static async insert(key) {
+        if (!isRedisAvailable) {
+          return;
+        }
+
         /**
          * As of when this was written, the redis client doesn't support
          * setting a TTL on members of the set dataytype. Instead, we'll
@@ -38,6 +55,10 @@ module.exports = class Cache {
     }
 
     static async remove(key) {
+        if (!isRedisAvailable) {
+          return false;
+        }
+
         let resp = await client.del(key);
 
         /**
